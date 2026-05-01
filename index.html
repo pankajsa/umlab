@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sequence Diagram Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f9fb;
+    --surface: #ffffff;
+    --surface2: #f1f3f6;
+    --border: #e2e6ec;
+    --border2: #c8cfd8;
+    --accent: #2563eb;
+    --accent2: #7c3aed;
+    --green: #059669;
+    --amber: #d97706;
+    --red: #dc2626;
+    --text: #111827;
+    --text2: #4b5563;
+    --text3: #9ca3af;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 700; color: var(--text); }
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(37,99,235,0.08);
+    border: 1px solid rgba(37,99,235,0.2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  button {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    border-radius: 7px;
+    padding: 7px 14px;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); border-color: #aab; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-green {
+    background: var(--green);
+    color: #fff;
+  }
+  .btn-green:hover { background: #047857; }
+  .btn-purple {
+    background: var(--accent2);
+    color: #fff;
+  }
+  .btn-purple:hover { background: #6d28d9; }
+
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 57px);
+  }
+
+  /* LEFT */
+  .left-panel {
+    width: 360px;
+    min-width: 180px;
+    max-width: 70vw;
+    flex-shrink: 0;
+    border-right: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  /* Resizer handle */
+  .resizer {
+    width: 5px;
+    flex-shrink: 0;
+    background: var(--border);
+    cursor: col-resize;
+    position: relative;
+    transition: background 0.15s;
+    z-index: 10;
+  }
+  .resizer:hover, .resizer.dragging {
+    background: var(--accent);
+  }
+  .resizer::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px;
+    height: 32px;
+    background: currentColor;
+    border-radius: 2px;
+    opacity: 0.4;
+  }
+  /* Expand/collapse toggle on the resizer */
+  .resizer-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translateY(-28px);
+    width: 18px;
+    height: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text2);
+    z-index: 11;
+    transition: all 0.15s;
+    padding: 0;
+    font-family: var(--sans);
+  }
+  .resizer-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .panel-tab {
+    flex: 1;
+    padding: 9px 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text3);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    transition: all 0.15s;
+  }
+  .panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+  .panel-tab:hover:not(.active) { color: var(--text2); }
+
+  .tab-content { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+  .tab-content.active { display: flex; }
+
+  .editor-wrap { flex: 1; overflow: hidden; position: relative; }
+  #dsl-editor {
+    width: 100%; height: 100%;
+    background: #fafbfc;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.75;
+    border: none; outline: none;
+    padding: 16px 18px;
+    resize: none;
+    tab-size: 2;
+  }
+  #dsl-editor::placeholder { color: var(--text3); }
+  .editor-footer {
+    padding: 7px 14px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2);
+  }
+  .editor-footer span { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); display: inline-block; margin-right: 5px;
+  }
+  .status-dot.error { background: var(--red); }
+
+  /* Syntax reference panel */
+  .reference-panel { padding: 14px; overflow-y: auto; flex: 1; }
+  .ref-section { margin-bottom: 18px; }
+  .ref-title {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--text3); text-transform: uppercase; margin-bottom: 8px;
+  }
+  .ref-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .ref-item:hover { border-color: var(--accent); background: rgba(37,99,235,0.03); }
+  .ref-item code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--accent);
+    display: block; margin-bottom: 2px;
+  }
+  .ref-item p { font-size: 11px; color: var(--text2); line-height: 1.4; }
+
+  /* Examples panel */
+  .examples-panel { padding: 14px; overflow-y: auto; flex: 1; }
+  .example-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.13s;
+  }
+  .example-card:hover { border-color: var(--accent2); background: rgba(124,58,237,0.03); }
+  .example-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .example-card p { font-size: 11px; color: var(--text2); }
+  .example-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    background: rgba(124,58,237,0.1);
+    color: var(--accent2);
+  }
+
+  /* RIGHT */
+  .canvas-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .canvas-toolbar {
+    padding: 9px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface);
+  }
+  .canvas-toolbar label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .zoom-control { display: flex; align-items: center; gap: 5px; }
+  .zoom-control button {
+    width: 26px; height: 26px; padding: 0;
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border2); border-radius: 5px; font-size: 14px;
+  }
+  .zoom-control button:hover { background: var(--border); }
+  .zoom-control span { font-family: var(--mono); font-size: 11px; color: var(--text2); min-width: 38px; text-align: center; }
+  .toolbar-right { display: flex; gap: 7px; align-items: center; margin-left: auto; }
+
+  .canvas-scroll {
+    flex: 1; overflow: auto;
+    padding: 40px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  #diagram-output { transform-origin: top center; transition: transform 0.2s; }
+
+  .diagram-wrap {
+    background: #fff;
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 32px 40px 40px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  }
+
+  .error-box {
+    background: rgba(220,38,38,0.06);
+    border: 1px solid rgba(220,38,38,0.25);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px; color: var(--red); line-height: 1.6;
+  }
+  .hint-box {
+    color: var(--text3); font-size: 13px;
+    font-family: var(--mono); text-align: center; padding: 60px 40px;
+  }
+  .hint-box span { display: block; font-size: 32px; margin-bottom: 10px; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <rect x="1" y="1" width="5" height="5" rx="1" fill="white" opacity="0.9"/>
+        <rect x="12" y="1" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <rect x="1" y="12" width="5" height="5" rx="1" fill="white" opacity="0.6"/>
+        <line x1="6" y1="3.5" x2="12" y2="3.5" stroke="white" stroke-width="1.5" stroke-dasharray="2,1"/>
+        <line x1="3.5" y1="6" x2="3.5" y2="12" stroke="white" stroke-width="1.5" stroke-dasharray="2,1"/>
+        <line x1="14.5" y1="6" x2="14.5" y2="12" stroke="white" stroke-width="1.5" stroke-dasharray="2,1"/>
+      </svg>
+    </div>
+    <h1>Sequence Diagram Builder</h1>
+  </div>
+  <div class="header-actions">
+    <button class="btn-ghost" onclick="copyDSL()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1" stroke="currentColor" stroke-width="1.5"/></svg>
+      Copy DSL
+    </button>
+    <button class="btn-ghost" onclick="exportSVG()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M5 8l3 3 3-3M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      SVG
+    </button>
+    <button class="btn-purple" onclick="exportPNG()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M5 8l3 3 3-3M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      PNG
+    </button>
+    <button class="btn-green" onclick="renderDiagram()">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 113 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 4v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Render
+    </button>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="left-panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" onclick="switchTab('editor', this)">Editor</button>
+      <button class="panel-tab" onclick="switchTab('syntax', this)">Syntax</button>
+      <button class="panel-tab" onclick="switchTab('examples', this)">Examples</button>
+    </div>
+
+    <div class="tab-content active" id="tab-editor">
+      <div class="editor-wrap">
+        <textarea id="dsl-editor" spellcheck="false" placeholder="@startuml&#10;participant A&#10;A -> B: Hello&#10;@enduml"></textarea>
+      </div>
+      <div class="editor-footer">
+        <span><span class="status-dot" id="status-dot"></span><span id="status-text">Ready</span></span>
+        <button class="btn-primary" onclick="renderDiagram()" style="padding:5px 11px;font-size:11.5px;">Render ⌘↵</button>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-syntax">
+      <div class="reference-panel">
+        <div class="ref-section">
+          <div class="ref-title">Participants</div>
+          <div class="ref-item" onclick="insertSnippet('participant Name')"><code>participant Name</code><p>Declare a participant box</p></div>
+          <div class="ref-item" onclick="insertSnippet('actor Name')"><code>actor Name</code><p>Human actor (stick figure)</p></div>
+          <div class="ref-item" onclick="insertSnippet('boundary Name')"><code>boundary Name</code><p>Boundary / UI element</p></div>
+          <div class="ref-item" onclick="insertSnippet('control Name')"><code>control Name</code><p>Control / coordinator</p></div>
+          <div class="ref-item" onclick="insertSnippet('entity Name')"><code>entity Name</code><p>Entity / domain object</p></div>
+          <div class="ref-item" onclick="insertSnippet('database Name')"><code>database Name</code><p>Database participant</p></div>
+          <div class="ref-item" onclick="insertSnippet('collections Name')"><code>collections Name</code><p>Collections / queue</p></div>
+          <div class="ref-item" onclick="insertSnippet('queue Name')"><code>queue Name</code><p>Message queue</p></div>
+          <div class="ref-item" onclick="insertSnippet('participant &quot;Long Name&quot; as Alias')"><code>participant "Long Name" as Alias</code><p>Alias for long names</p></div>
+          <div class="ref-item" onclick="insertSnippet('participant Name #4E95D9')">
+            <code>participant Name #4E95D9</code>
+            <p>Inline hex color decorator</p>
+          </div>
+          <div class="ref-item" onclick="insertSnippet('participant Name #BLUE')">
+            <code>participant Name #VARNAME</code>
+            <p>Named color variable (define with <code>!define</code> below)</p>
+          </div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Color Variables</div>
+          <div class="ref-item" onclick="insertSnippet('!define VARNAME HEX')">
+            <code>!define VARNAME HEX</code>
+            <p>Define a named color. Use anywhere as <code>#VARNAME</code>. Leading # in the value is optional.</p>
+          </div>
+          <div class="ref-item" onclick="insertSnippet('!color VARNAME HEX')">
+            <code>!color VARNAME HEX</code>
+            <p>Shorthand alias for <code>!define</code> — identical behaviour</p>
+          </div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Project Palette</div>
+          <div class="ref-item" style="cursor:default">
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:2px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#4E95D9;flex-shrink:0"></span>
+                <code style="margin:0">!define CAT1 4E95D9</code>
+                <span style="font-size:10px;color:var(--text3)">Category 1</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#78206E;flex-shrink:0"></span>
+                <code style="margin:0">!define CAT2 78206E</code>
+                <span style="font-size:10px;color:var(--text3)">Category 2</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#BFBFBF;flex-shrink:0"></span>
+                <code style="margin:0">!define CAT3 BFBFBF</code>
+                <span style="font-size:10px;color:var(--text3)">Category 3</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#97D9CF;flex-shrink:0"></span>
+                <code style="margin:0">!define CAT4 97D9CF</code>
+                <span style="font-size:10px;color:var(--text3)">Category 4</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding-top:4px;border-top:1px solid var(--border)">
+                <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#888800;flex-shrink:0"></span>
+                <code style="margin:0">!define CAT5 888800</code>
+                <span style="font-size:10px;color:var(--text3)">Category 5</span>
+              </div>
+            </div>
+            <p style="margin-top:6px">Use <code>#CAT1</code> … <code>#CAT5</code> on participants and arrows after defining the palette.</p>
+          </div>
+          <div class="ref-item" onclick="insertSnippet('!define CAT1 4E95D9\n!define CAT2 78206E\n!define CAT3 BFBFBF\n!define CAT4 97D9CF\n!define CAT5 888800')">
+            <code>Insert full palette block ↵</code>
+            <p>Click to insert all five color definitions at cursor</p>
+          </div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Arrows / Messages</div>
+          <div class="ref-item" onclick="insertSnippet('A -> B: message')"><code>A -> B: message</code><p>Solid filled arrow (sync call)</p></div>
+          <div class="ref-item" onclick="insertSnippet('A --> B: response')"><code>A --> B: response</code><p>Dashed arrow (return / async)</p></div>
+          <div class="ref-item" onclick="insertSnippet('A ->> B: message')"><code>A ->> B: message</code><p>Solid open arrowhead</p></div>
+          <div class="ref-item" onclick="insertSnippet('A -->> B: message')"><code>A -->> B: message</code><p>Dashed open arrowhead</p></div>
+          <div class="ref-item" onclick="insertSnippet('A ->x B: lost')"><code>A ->x B: lost</code><p>Lost message (X endpoint)</p></div>
+          <div class="ref-item" onclick="insertSnippet('A -> A: self-call')"><code>A -> A: self-call</code><p>Self-referencing message</p></div>
+          <div class="ref-item" onclick="insertSnippet('A ->] B: outbound')"><code>A ->] outbound</code><p>Message going out of diagram</p></div>
+          <div class="ref-item" onclick="insertSnippet('[-> B: inbound')"><code>[-> B: inbound</code><p>Message entering diagram</p></div>
+          <div class="ref-item" onclick="insertSnippet('A -[#CAT1]-> B: message\nA -[#CAT2]->> B ++: async\nA --[#CAT3]> B --: return')">
+            <code>A -[#VARNAME]-> B: label</code>
+            <p>Color the arrow using a palette variable or hex. Works with all arrow styles: <code>-[#CAT1]-></code> <code>-[#CAT2]->></code> <code>--[#CAT3]></code></p>
+          </div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Activation</div>
+          <div class="ref-item" onclick="insertSnippet('activate A\nA -> B: call\ndeactivate A')"><code>activate / deactivate A</code><p>Explicit activation box on lifeline</p></div>
+          <div class="ref-item" onclick="insertSnippet('A ++-> B: call\nB -->-- A: return')"><code>A ++-> B  /  B -->-- A</code><p>Shorthand activate / deactivate with ++ and --</p></div>
+          <div class="ref-item" onclick="insertSnippet('return Trans No')"><code>return [label] [#COLOR]</code><p>Dashed reply to last caller + deactivate. Optionally add a label and/or trailing color.</p></div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Control Flow</div>
+          <div class="ref-item" onclick="insertSnippet('loop Every 5s\n  A -> B: poll\nend')"><code>loop [condition] … end</code><p>Loop block</p></div>
+          <div class="ref-item" onclick="insertSnippet('alt Success\n  A -> B: ok\nelse Failure\n  A -> B: error\nend')"><code>alt … else … end</code><p>Alternatives (if/else)</p></div>
+          <div class="ref-item" onclick="insertSnippet('opt [condition]\n  A -> B: optional\nend')"><code>opt [condition] … end</code><p>Optional block</p></div>
+          <div class="ref-item" onclick="insertSnippet('par\n  A -> B: thread 1\nand\n  A -> C: thread 2\nend')"><code>par … and … end</code><p>Parallel execution</p></div>
+          <div class="ref-item" onclick="insertSnippet('critical Resource\n  A -> B: exclusive\nend')"><code>critical … end</code><p>Critical region</p></div>
+          <div class="ref-item" onclick="insertSnippet('break condition\n  A -> B: abort\nend')"><code>break … end</code><p>Break out of loop</p></div>
+          <div class="ref-item" onclick="insertSnippet('group My Group\n  A -> B: action\nend')"><code>group [label] … end</code><p>Custom grouping box</p></div>
+          <div class="ref-item" onclick="insertSnippet('ref over A,B: See diagram X')"><code>ref over A,B: text</code><p>Reference to another diagram</p></div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Notes</div>
+          <div class="ref-item" onclick="insertSnippet('note over A: This is a note')"><code>note over A: text</code><p>Note above participant</p></div>
+          <div class="ref-item" onclick="insertSnippet('note over A,B: Spans two')"><code>note over A,B: text</code><p>Note spanning participants</p></div>
+          <div class="ref-item" onclick="insertSnippet('note left of A: Left note')"><code>note left of A: text</code><p>Note to the left</p></div>
+          <div class="ref-item" onclick="insertSnippet('note right of A: Right note')"><code>note right of A: text</code><p>Note to the right</p></div>
+          <div class="ref-item" onclick="insertSnippet('note over A\n  Multi-line\n  note here\nend note')"><code>note over A … end note</code><p>Multi-line note block</p></div>
+          <div class="ref-item" onclick="insertSnippet('hnote over A: hex note')"><code>hnote over A: text</code><p>Hexagonal note</p></div>
+          <div class="ref-item" onclick="insertSnippet('rnote over A: round note')"><code>rnote over A: text</code><p>Rounded rectangle note</p></div>
+        </div>
+        <div class="ref-section">
+          <div class="ref-title">Layout & Misc</div>
+          <div class="ref-item" onclick="insertSnippet('title My Diagram Title')"><code>title text</code><p>Diagram title</p></div>
+          <div class="ref-item" onclick="insertSnippet('autonumber')"><code>autonumber</code><p>Auto-number messages</p></div>
+          <div class="ref-item" onclick="insertSnippet('autonumber 10 5')"><code>autonumber start inc</code><p>Autonumber with start & increment</p></div>
+          <div class="ref-item" onclick="insertSnippet('== Section Name ==')"><code>== Section ==</code><p>Section / divider line</p></div>
+          <div class="ref-item" onclick="insertSnippet('...5 seconds later...')"><code>...delay text...</code><p>Delay / time gap</p></div>
+          <div class="ref-item" onclick="insertSnippet('|||')"><code>|||</code><p>Extra vertical space</p></div>
+          <div class="ref-item" onclick="insertSnippet('||20||')"><code>||N||</code><p>N pixels of vertical space</p></div>
+          <div class="ref-item" onclick="insertSnippet('destroy A')"><code>destroy A</code><p>Destroy participant (X mark)</p></div>
+          <div class="ref-item" onclick="insertSnippet('hide footbox')"><code>hide footbox</code><p>Hide bottom participant boxes</p></div>
+          <div class="ref-item" onclick="insertSnippet('A ->> B ++: [REST] callName\nA -> B ++: [WS] callName\nA -> B ++: [MQ] callName\nA -> B ++: [gRPC] callName')">
+            <code>A -> B: [PROTOCOL] label</code>
+            <p>Annotate protocol inline. Convention: <code>[REST]</code> <code>[WS]</code> <code>[MQ]</code> <code>[gRPC]</code> <code>[JDBC]</code> at the start of the label. Use <code>->></code> for async (open arrowhead), <code>-></code> for sync.</p>
+          </div>
+          <div class="ref-item" onclick="insertSnippet('skinparam sequenceArrowThickness 2')"><code>skinparam …</code><p>Visual customisation</p></div>
+          <div class="ref-item" onclick="insertSnippet('\'')"><code>\' comment</code><p>Line comment (apostrophe)</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-examples">
+      <div class="examples-panel">
+        <div class="example-card" onclick="loadExample('login')">
+          <h4>User Login Flow</h4>
+          <p>JWT authentication with DB lookup and error handling</p>
+          <span class="example-tag">auth</span>
+        </div>
+        <div class="example-card" onclick="loadExample('api')">
+          <h4>REST API + Cache</h4>
+          <p>API Gateway → Service → Cache → DB with alt blocks</p>
+          <span class="example-tag">microservices</span>
+        </div>
+        <div class="example-card" onclick="loadExample('payment')">
+          <h4>Payment Processing</h4>
+          <p>Card payment with fraud check, card network, settlement</p>
+          <span class="example-tag">banking</span>
+        </div>
+        <div class="example-card" onclick="loadExample('oauth')">
+          <h4>OAuth 2.0 + PKCE</h4>
+          <p>Authorization code grant with refresh token loop</p>
+          <span class="example-tag">auth</span>
+        </div>
+        <div class="example-card" onclick="loadExample('saga')">
+          <h4>SAGA Pattern</h4>
+          <p>Distributed transaction with compensating transactions</p>
+          <span class="example-tag">distributed</span>
+        </div>
+        <div class="example-card" onclick="loadExample('websocket')">
+          <h4>WebSocket Lifecycle</h4>
+          <p>Real-time chat with heartbeat and disconnect</p>
+          <span class="example-tag">realtime</span>
+        </div>
+        <div class="example-card" onclick="loadExample('types')">
+          <h4>Project Palette</h4>
+          <p>REG · HO · BR · EXT (new) and EXIST (existing/legacy) color conventions</p>
+          <span class="example-tag">reference</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="resizer" id="resizer">
+    <button class="resizer-btn" id="resizer-collapse" title="Collapse/expand panel">◀</button>
+  </div>
+
+  <div class="canvas-panel">
+    <div class="canvas-toolbar">
+      <label>Preview</label>
+      <div class="toolbar-sep"></div>
+      <div class="zoom-control">
+        <button onclick="zoom(-0.1)">−</button>
+        <span id="zoom-label">100%</span>
+        <button onclick="zoom(0.1)">+</button>
+        <button class="btn-ghost" onclick="resetZoom()" style="width:auto;padding:0 8px;height:26px;font-size:11px;">Reset</button>
+      </div>
+    </div>
+    <div class="canvas-scroll">
+      <div id="diagram-output">
+        <div class="diagram-wrap">
+          <div class="hint-box"><span>✏️</span>Write PlantUML DSL in the editor and hit Render</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── EXAMPLES ────────────────────────────────────────────────────────────────
+const EXAMPLES = {
+login: `@startuml
+autonumber
+hide footbox
+SRC -> DST ++:
+return
+@enduml`,
+
+api: `@startuml
+title REST API Request — Cache-Aside Pattern
+
+actor Client
+participant "API Gateway" as GW
+control "Auth Middleware" as AM
+participant "Order Service" as OS
+database "Postgres DB" as DB
+collections Cache
+
+Client -> GW: GET /api/orders/123
+activate GW
+GW -> AM: validate_token(header)
+activate AM
+AM --> GW: {userId: 42, roles: [user]}
+deactivate AM
+
+GW -> OS: getOrder(id=123, userId=42)
+activate OS
+
+OS -> Cache: get("order:123")
+activate Cache
+alt Cache hit
+  Cache --> OS: order data
+  deactivate Cache
+else Cache miss
+  deactivate Cache
+  OS -> DB: SELECT * FROM orders WHERE id=123
+  activate DB
+  DB --> OS: order record
+  deactivate DB
+  OS -> Cache: set("order:123", data, ttl=300)
+end
+
+OS --> GW: Order{id:123, status:"shipped"}
+deactivate OS
+GW --> Client: 200 OK {order}
+deactivate GW
+@enduml`,
+
+payment: `@startuml
+title Payment Processing Flow
+autonumber
+
+actor Customer
+boundary Merchant
+participant "Payment Gateway" as PG
+control "Fraud Engine" as FE
+participant "Card Network" as CN
+entity "Issuing Bank" as IB
+
+Customer -> Merchant: Submit payment
+Merchant -> PG: POST /charge {card, amount}
+activate PG
+
+PG -> FE: checkFraud(card, amount, merchant)
+activate FE
+FE --> PG: {risk_score: 0.12, approved: true}
+deactivate FE
+
+PG -> CN: authorise(pan, amount, merchant_id)
+activate CN
+CN -> IB: authorisation_request
+activate IB
+
+alt Sufficient funds
+  IB --> CN: approved(auth_code: X7K2)
+  CN --> PG: approved
+  deactivate CN
+  PG --> Merchant: {status: "approved", ref: "TXN001"}
+  Merchant --> Customer: Payment confirmed ✓
+else Insufficient funds
+  IB --> CN: declined(reason: "NSF")
+  deactivate IB
+  CN --> PG: declined
+  deactivate CN
+  PG --> Merchant: {status: "declined", reason: "NSF"}
+  Merchant --> Customer: Payment failed
+end
+
+deactivate PG
+
+== Settlement (T+1) ==
+
+CN -> IB: settlement_batch
+IB --> CN: settlement_confirmed
+@enduml`,
+
+oauth: `@startuml
+title OAuth 2.0 — Authorization Code + PKCE
+
+actor User
+participant "Client App" as App
+participant "Auth Server" as AS
+participant "Resource Server" as RS
+
+note over App: Generate code_verifier\n& code_challenge (S256)
+
+App -> User: Redirect to /authorize
+User -> AS: GET /authorize?client_id=…&code_challenge=…
+activate AS
+AS -> User: Show consent screen
+User -> AS: Approve
+AS --> App: 302 ?code=AUTH_CODE
+deactivate AS
+
+App -> AS: POST /token\n{code, code_verifier, client_id}
+activate AS
+note over AS: Verify PKCE challenge
+AS --> App: {access_token, refresh_token, expires_in}
+deactivate AS
+
+loop API calls while token valid
+  App -> RS: GET /resource Authorization: Bearer <token>
+  activate RS
+  RS --> App: 200 OK {data}
+  deactivate RS
+end
+
+opt Token expired
+  App -> AS: POST /token {grant_type: refresh_token}
+  activate AS
+  AS --> App: {new_access_token}
+  deactivate AS
+end
+@enduml`,
+
+saga: `@startuml
+title SAGA Pattern — Distributed Transaction
+
+participant "Order Service" as OS
+participant "Payment Service" as PS
+participant "Inventory Service" as IS
+participant "Shipping Service" as SS
+queue "Event Bus" as EB
+
+OS -> EB: OrderCreated {orderId, items, amount}
+activate EB
+
+EB -> PS: reserve_payment(orderId, amount)
+activate PS
+PS --> EB: PaymentReserved
+deactivate PS
+
+EB -> IS: reserve_stock(orderId, items)
+activate IS
+
+alt Stock available
+  IS --> EB: StockReserved
+  deactivate IS
+  EB -> SS: schedule_shipment(orderId)
+  activate SS
+  SS --> EB: ShipmentScheduled
+  deactivate SS
+  EB -> OS: OrderConfirmed ✓
+else Out of stock (compensate)
+  IS --> EB: StockFailed
+  deactivate IS
+  note over EB: Triggering compensating\ntransactions
+  EB -> PS: release_payment(orderId)
+  activate PS
+  PS --> EB: PaymentReleased
+  deactivate PS
+  EB -> OS: OrderFailed(reason: "Out of stock")
+end
+
+deactivate EB
+@enduml`,
+
+websocket: `@startuml
+title WebSocket Chat — Connection Lifecycle
+
+actor Alice
+actor Bob
+participant "Chat Client A" as CA
+participant "Chat Client B" as CB
+participant "WS Server" as WS
+database "Message Store" as MS
+
+== Connection ==
+
+CA -> WS: WS Upgrade /chat?token=…
+activate WS
+WS --> CA: 101 Switching Protocols
+CB -> WS: WS Upgrade /chat?token=…
+WS --> CB: 101 Switching Protocols
+
+== Messaging ==
+
+Alice -> CA: Type message
+CA -> WS: {type:"msg", to:"Bob", text:"Hello!"}
+WS -> MS: persist(message)
+activate MS
+MS --> WS: saved {id: msg_001}
+deactivate MS
+WS -> CB: {type:"msg", from:"Alice", text:"Hello!", id:"msg_001"}
+CB -> Bob: Show message
+
+== Heartbeat ==
+
+loop Every 30s
+  WS -> CA: PING
+  CA --> WS: PONG
+end
+
+== Disconnect ==
+
+Alice -> CA: Close tab
+CA -> WS: Close frame
+WS --> CA: Close frame
+deactivate WS
+@enduml`,
+
+types: `@startuml
+title Project Palette — New vs Existing Components
+
+!define REG    4E95D9
+!define HO     78206E
+!define BR     BFBFBF
+!define EXT    97D9CF
+!define BR-NEW 888800
+
+actor       "User"            as U   #REG
+participant "Head Office App" as HO_ #HO
+participant "Branch Client"   as BR_ #BR
+participant "Ext. Partner"    as EX  #EXT
+database    "New DB"          as NDB #REG
+database    "Legacy Core"     as LDB #BR-NEW
+participant GBASE             as GB  #HO
+
+U   -> HO_: initiate request
+HO_ -> BR_: delegate to branch
+BR_ -> EX:  call external
+EX  --> BR_: response
+BR_ -> NDB: write new record
+BR_ -> LDB: read legacy data
+LDB --> BR_: existing record
+BR_ -> GB:  sync to GBASE
+
+note over LDB
+  #BR-NEW (olive)\ndenotes existing BR\nsystems under transformation
+end note
+@enduml`
+};
+
+// ─── DSL PARSER ──────────────────────────────────────────────────────────────
+function parseDSL(raw) {
+  // Strip @startuml / @enduml wrappers and comments
+  let text = raw
+    .replace(/@startuml[^\n]*/gi, '')
+    .replace(/@enduml/gi, '')
+    .replace(/^'.*$/gm, '') // line comments
+    .replace(/\/\*[\s\S]*?\*\//g, ''); // block comments
+
+  // ── Color variable pre-pass ──────────────────────────────────────
+  // Collect all !define / !color declarations first, then substitute
+  // Supported forms (case-insensitive):
+  //   !define VARNAME HEXVALUE        (PlantUML style)
+  //   !color VARNAME HEXVALUE         (shorthand alias)
+  //   !define VARNAME #HEXVALUE       (with leading #)
+  const colorVars = {};
+  const defineRx = /^!(define|color)\s+([A-Za-z_]\w*)\s+#?([0-9a-fA-F]{3,8})\s*$/im;
+  text.split('\n').forEach(line => {
+    const m = line.trim().match(defineRx);
+    if (m) colorVars[m[2]] = m[3].toUpperCase();
+  });
+
+  // Strip define/color declaration lines from text
+  text = text.replace(/^!(define|color)\s+\S.*$/gim, '');
+
+  // Substitute #VARNAME → #HEXVALUE everywhere in remaining text
+  // Longest var names first to avoid partial matches
+  const varNames = Object.keys(colorVars).sort((a,b) => b.length - a.length);
+  for (const v of varNames) {
+    text = text.replace(new RegExp(`#${v}\\b`, 'g'), '#' + colorVars[v]);
+  }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const participants = [];
+  const participantMap = {};
+  const messages = [];
+  let title = '';
+  let autonumber = false;
+  let autoStart = 1, autoInc = 1, autoCounter = 0;
+  let hideFootbox = false;
+
+  const STEREOTYPES = ['participant','actor','boundary','control','entity','database','collections','queue'];
+  // Also match common typos / truncations via fuzzy prefix (min 4 chars match)
+  function matchStereotype(word) {
+    const w = word.toLowerCase();
+    return STEREOTYPES.find(s => s.startsWith(w.slice(0, Math.max(4, w.length))) || w.startsWith(s.slice(0, 4)));
+  }
+
+  // First pass: declared participants + title + autonumber + hide footbox
+  for (const line of lines) {
+    const firstWord = line.split(/\s+/)[0];
+    const stereotype = matchStereotype(firstWord);
+    if (stereotype) {
+      // Support both quoted and unquoted multi-word names:
+      //   participant "Long Name" as ALIAS #COLOR
+      //   participant LongName as ALIAS #COLOR   (unquoted single-word)
+      //   partcipant MAXIS INTERFACE as MI       (typo + multi-word unquoted)
+      const m = line.match(/^\S+\s+"([^"]+)"(?:\s+as\s+(\S+?))?(?:\s+#([0-9a-fA-F]{3,8}))?\s*$/i)
+             || line.match(/^\S+\s+(.+?)\s+as\s+(\S+?)(?:\s+#([0-9a-fA-F]{3,8}))?\s*$/i)
+             || line.match(/^\S+\s+(\S+?)(?:\s+#([0-9a-fA-F]{3,8}))?\s*$/i);
+      if (m) {
+        const type  = stereotype;
+        const label = m[1].replace(/^"+|"+$/g, '').trim();
+        // For the 3-group match (quoted or "name as alias"), alias is m[2]; color m[3]
+        // For the 2-group match (just name), alias=label; color is m[2]
+        const alias = (m[2] && !/^[0-9a-fA-F]{3,8}$/.test(m[2]) ? m[2] : label).trim();
+        const colorHex = m[3] || (m[2] && /^[0-9a-fA-F]{3,8}$/.test(m[2]) ? m[2] : null);
+        const color = colorHex ? '#' + colorHex : null;
+        if (!participantMap[alias]) {
+          participantMap[alias] = { label, alias, type, color };
+          participants.push(participantMap[alias]);
+        }
+      }
+    } else if (/^title\s+/i.test(line)) {
+      title = line.replace(/^title\s+/i, '').trim();
+    } else if (/^autonumber\b/i.test(line)) {
+      autonumber = true;
+      const m = line.match(/^autonumber\s+(\d+)(?:\s+(\d+))?/i);
+      if (m) { autoStart = parseInt(m[1]); autoInc = m[2] ? parseInt(m[2]) : 1; }
+      autoCounter = autoStart - autoInc;
+    } else if (/^hide\s+footbox/i.test(line)) {
+      hideFootbox = true;
+    }
+  }
+
+  function ensureP(alias) {
+    const a = alias.replace(/^"+|"+$/g, '').trim();
+    if (!participantMap[a]) {
+      participantMap[a] = { label: a, alias: a, type: 'participant' };
+      participants.push(participantMap[a]);
+    }
+    return a;
+  }
+
+  function nextNum() {
+    autoCounter += autoInc;
+    return autoCounter;
+  }
+
+  // Multi-line note accumulator
+  let noteAccum = null;
+
+  // Second pass: messages + blocks
+  const blockStack = [];
+  let blockIdCounter = 0;
+  // callStack tracks [from, to] of each forward message so 'return' knows who to reply to
+  const callStack = [];
+
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+
+    // Skip declarations already handled in first pass
+    if (matchStereotype(line.split(/\s+/)[0]) || /^(title|autonumber|hide\s+footbox)/i.test(line)) continue;
+
+    // Multi-line note end
+    if (noteAccum !== null) {
+      if (/^end\s*note/i.test(line)) {
+        messages.push(noteAccum);
+        noteAccum = null;
+      } else {
+        noteAccum.text += '\n' + line;
+      }
+      continue;
+    }
+
+    // Multi-line note start
+    const mlNoteM = line.match(/^([hr]?note)\s+(over|left of|right of)\s+([^:]+?)(?:$)/i);
+    if (mlNoteM && !line.includes(':')) {
+      const ps = mlNoteM[3].split(',').map(s => ensureP(s.trim()));
+      noteAccum = { kind: 'note', shape: mlNoteM[1].toLowerCase(), position: mlNoteM[2].toLowerCase(), participants: ps, text: '' };
+      continue;
+    }
+
+    // Inline note
+    const noteM = line.match(/^([hr]?note)\s+(over|left of|right of)\s+([^:]+):\s*(.*)/i);
+    if (noteM) {
+      const ps = noteM[3].split(',').map(s => ensureP(s.trim()));
+      messages.push({ kind: 'note', shape: noteM[1].toLowerCase(), position: noteM[2].toLowerCase(), participants: ps, text: noteM[4] });
+      continue;
+    }
+
+    // ref over
+    const refM = line.match(/^ref\s+over\s+([^:]+):\s*(.*)/i);
+    if (refM) {
+      const ps = refM[1].split(',').map(s => ensureP(s.trim()));
+      messages.push({ kind: 'ref', participants: ps, text: refM[2] });
+      continue;
+    }
+
+    // Section divider
+    const secM = line.match(/^==\s*(.*?)\s*==$/);
+    if (secM) { messages.push({ kind: 'section', label: secM[1] }); continue; }
+
+    // Delay
+    const delayM = line.match(/^\.\.\.(.+?)\.\.\.$/);
+    if (delayM) { messages.push({ kind: 'delay', text: delayM[1].trim() }); continue; }
+    if (/^(\|\|\||\|{2}\d+\|{2})$/.test(line)) {
+      const spM = line.match(/\|{2}(\d+)\|{2}/);
+      messages.push({ kind: 'space', px: spM ? parseInt(spM[1]) : 10 });
+      continue;
+    }
+
+    // Blocks
+    const blockTypes = ['loop','alt','opt','par','critical','break','group'];
+    let matchedBlock = false;
+    for (const bt of blockTypes) {
+      const rx = new RegExp(`^${bt}\\s*(.*)`, 'i');
+      const m = line.match(rx);
+      if (m) {
+        const id = blockIdCounter++;
+        blockStack.push({ id, type: bt, label: m[1].trim(), elseY: [] });
+        messages.push({ kind: 'block-start', blockType: bt, label: m[1].trim(), blockId: id });
+        matchedBlock = true;
+        break;
+      }
+    }
+    if (matchedBlock) continue;
+
+    const elseM = line.match(/^else\s*(.*)/i);
+    if (elseM) {
+      if (blockStack.length) messages.push({ kind: 'block-else', label: elseM[1].trim(), blockId: blockStack[blockStack.length-1].id });
+      continue;
+    }
+    const andM = line.match(/^and\b/i);
+    if (andM) {
+      if (blockStack.length) messages.push({ kind: 'block-else', label: 'and', blockId: blockStack[blockStack.length-1].id });
+      continue;
+    }
+    const endM = line.match(/^end\b/i);
+    if (endM) {
+      const b = blockStack.pop();
+      if (b) messages.push({ kind: 'block-end', blockType: b.type, blockId: b.id });
+      continue;
+    }
+
+    // activate / deactivate / destroy
+    const activateM = line.match(/^activate\s+(\S+)/i);
+    if (activateM) { ensureP(activateM[1]); messages.push({ kind: 'activate', participant: activateM[1] }); continue; }
+    const deactivateM = line.match(/^deactivate\s+(\S+)/i);
+    if (deactivateM) { ensureP(deactivateM[1]); messages.push({ kind: 'deactivate', participant: deactivateM[1] }); continue; }
+    const destroyM = line.match(/^destroy\s+(\S+)/i);
+    if (destroyM) { ensureP(destroyM[1]); messages.push({ kind: 'destroy', participant: destroyM[1] }); continue; }
+
+    // return [label] [#COLOR]
+    // Sends a dashed reply from current receiver back to last caller, and deactivates.
+    const returnM = line.match(/^return(?:\s+(.*))?$/i);
+    if (returnM) {
+      if (callStack.length > 0) {
+        const last = callStack[callStack.length - 1];
+        let retText = (returnM[1] || 'return').trim();
+        let retColor = null;
+        const trailCol = retText.match(/\s*#([0-9a-fA-F]{3,8})$/);
+        if (trailCol) { retColor = '#' + trailCol[1]; retText = retText.slice(0, retText.length - trailCol[0].length).trim(); }
+        if (!retText) retText = 'return';
+        const num = autonumber ? nextNum() : null;
+        messages.push({ kind: 'message', from: last.to, to: last.from, arrow: '-->', text: retText, num, arrowColor: retColor, lost: false, boundaryFrom: false, boundaryTo: false });
+        messages.push({ kind: 'deactivate', participant: last.to });
+        callStack.pop();
+      }
+      continue;
+    }
+
+
+    // Message arrow — two forms:
+    //   Plain:   A -> B ++: text  /  A --> B --: text  /  A -> B  (no label)
+    //   Colored: A -[#4E95D9]-> B ++: text
+    //
+    // Participant names: quoted ("Gas Interface") or single-word (MI, GBase).
+    // Multi-word unquoted names are NOT supported without quotes — use aliases.
+    // Label is optional — arrows without ": text" are valid.
+    //
+    // plainRx groups: 1=from-quoted-inner  2=from-unquoted  3=arrow  4=to-quoted-inner  5=to-unquoted  6=suffix  7=text(optional)
+    // arrowRx groups: 1=from-quoted-inner  2=from-unquoted  3=pre-dashes  4=hex  5=post-arrow  6=to-quoted-inner  7=to-unquoted  8=suffix  9=text(optional)
+    const plainRx = /^(?:"([^"]*)"|(\S+?))\s*(-{1,2}>+x?)\s+(?:"([^"]*)"|(\S+?))(\s*\+\+|\s*--)?(?:\s*:\s*(.*))?$/;
+    const arrowRx = /^(?:"([^"]*)"|(\S+?))\s*(-{1,2})\[#([0-9a-fA-F]{3,8})\](-*>+x?)\s+(?:"([^"]*)"|(\S+?))(\s*\+\+|\s*--)?(?:\s*:\s*(.*))?$/;
+
+    const arrowM = arrowRx.exec(line);
+    const plainA = !arrowM ? plainRx.exec(line) : null;
+
+    if (arrowM || plainA) {
+      let from, arrow, toRaw, suffix, msgText, arrowColor;
+
+      if (arrowM) {
+        from       = (arrowM[1] !== undefined ? arrowM[1] : arrowM[2]).trim();
+        const pre  = arrowM[3];
+        arrowColor = '#' + arrowM[4];
+        const post = arrowM[5];
+        arrow      = (pre + post).replace(/^-{3,}/, '--');
+        toRaw      = (arrowM[6] !== undefined ? arrowM[6] : arrowM[7]).trim();
+        suffix     = (arrowM[8] || '').trim();
+        msgText    = (arrowM[9] || '').trim();
+      } else {
+        from       = (plainA[1] !== undefined ? plainA[1] : plainA[2]).trim();
+        arrow      = plainA[3].trim();
+        toRaw      = (plainA[4] !== undefined ? plainA[4] : plainA[5]).trim();
+        suffix     = (plainA[6] || '').trim();
+        msgText    = (plainA[7] || '').trim();
+        arrowColor = null;
+      }
+
+      if (!from || !toRaw) continue;
+
+      // Trailing color on label: "Return Trans No #BR" or "label #4E95D9"
+      // The color var pre-pass has already resolved #VARNAME → #HEX in the full text,
+      // so by this point it will always be a hex value if it was a var.
+      if (!arrowColor) {
+        const trailColor = msgText.match(/\s+#([0-9a-fA-F]{3,8})$/);
+        if (trailColor) {
+          arrowColor = '#' + trailColor[1];
+          msgText = msgText.slice(0, msgText.length - trailColor[0].length).trim();
+        }
+      }
+
+      let activateAfter  = null;
+      let deactivateFrom = null;
+      if (suffix === '++') activateAfter  = toRaw;
+      if (suffix === '--') deactivateFrom = from;
+
+      const isBoundaryFrom = from === '[';
+      const isBoundaryTo   = toRaw === ']' || toRaw === '[';
+      if (!isBoundaryFrom) ensureP(from);
+      if (!isBoundaryTo)   ensureP(toRaw);
+
+      const num = autonumber ? nextNum() : null;
+      messages.push({
+        kind: 'message', from, to: toRaw, arrow, text: msgText, num,
+        lost: arrow.includes('x'), arrowColor,
+        boundaryFrom: isBoundaryFrom, boundaryTo: isBoundaryTo
+      });
+      // Track call stack for 'return' keyword — only push forward (non-dashed, non-self) calls
+      if (!arrow.startsWith('--') && from !== toRaw && !isBoundaryFrom && !isBoundaryTo) {
+        callStack.push({ from, to: toRaw });
+      }
+      if (activateAfter)  messages.push({ kind: 'activate',   participant: activateAfter });
+      if (deactivateFrom) messages.push({ kind: 'deactivate', participant: deactivateFrom });
+      continue;
+    }
+
+  } // end for loop over lines
+
+  return { title, participants, messages, hideFootbox, colorVars };
+}
+
+// ─── SVG RENDERER ────────────────────────────────────────────────────────────
+function renderSVG(parsed) {
+  const { title, participants, messages, hideFootbox } = parsed;
+  if (!participants.length) return null;
+
+  const C = {
+    bg: '#ffffff',
+    participant:   { fill: '#f0f4ff', stroke: '#2563eb', text: '#1e3a8a' },
+    actor:         { fill: '#f0f4ff', stroke: '#2563eb', text: '#1e3a8a' },
+    boundary:      { fill: '#fdf4ff', stroke: '#9333ea', text: '#581c87' },
+    control:       { fill: '#fff7ed', stroke: '#ea580c', text: '#7c2d12' },
+    entity:        { fill: '#f0fdf4', stroke: '#16a34a', text: '#14532d' },
+    database:      { fill: '#f0f9ff', stroke: '#0284c7', text: '#0c4a6e' },
+    collections:   { fill: '#fefce8', stroke: '#ca8a04', text: '#713f12' },
+    queue:         { fill: '#fff1f2', stroke: '#e11d48', text: '#881337' },
+    lifeline:      '#c8cfd8',
+    activation:    { fill: 'rgba(37,99,235,0.12)', stroke: '#2563eb' },
+    arrow:         { solid: '#111827', dashed: '#6b7280', lost: '#dc2626', boundary: '#9ca3af' },
+    note:          { fill: '#fefce8', stroke: '#ca8a04', text: '#713f12' },
+    noteHex:       { fill: '#fdf4ff', stroke: '#9333ea', text: '#581c87' },
+    noteRound:     { fill: '#f0fdf4', stroke: '#16a34a', text: '#14532d' },
+    ref:           { fill: '#f0f4ff', stroke: '#2563eb', text: '#1e3a8a' },
+    loop:          { fill: 'rgba(5,150,105,0.05)',  stroke: '#059669', text: '#065f46' },
+    alt:           { fill: 'rgba(37,99,235,0.05)',  stroke: '#2563eb', text: '#1e40af' },
+    opt:           { fill: 'rgba(124,58,237,0.05)', stroke: '#7c3aed', text: '#4c1d95' },
+    par:           { fill: 'rgba(217,119,6,0.05)',  stroke: '#d97706', text: '#78350f' },
+    critical:      { fill: 'rgba(220,38,38,0.05)',  stroke: '#dc2626', text: '#7f1d1d' },
+    break:         { fill: 'rgba(220,38,38,0.05)',  stroke: '#dc2626', text: '#7f1d1d' },
+    group:         { fill: 'rgba(100,116,139,0.05)',stroke: '#64748b', text: '#1e293b' },
+    section:       '#9ca3af',
+    delay:         '#9ca3af',
+    num:           '#2563eb',
+    title:         '#374151',
+  };
+
+  const PAD_X = 60;
+  const COL_W = 170;
+  const BOX_W = 120;
+  const BOX_H = 36;
+  const ROW_H = 52;
+  const LIFELINE_START = (title ? 30 : 8) + BOX_H;
+  const ACT_W = 10;
+
+  const totalW = PAD_X * 2 + Math.max(0, participants.length - 1) * COL_W + BOX_W;
+  const pIndex = {};
+  participants.forEach((p, i) => { pIndex[p.alias] = i; });
+  const cx = (i) => PAD_X + BOX_W / 2 + i * COL_W;
+
+  // Layout pass
+  let y = LIFELINE_START + 16;
+  const activations = {};
+  const activeStack = {};
+  participants.forEach(p => { activations[p.alias] = []; activeStack[p.alias] = []; });
+
+  const rows = [];
+  const blockStack = [];
+  let blockIdCtr = 0;
+
+  let lastMessageY = 0;
+
+  for (const msg of messages) {
+    if (msg.kind === 'message') {
+      const isSelf = !msg.boundaryFrom && !msg.boundaryTo && msg.from === msg.to;
+      lastMessageY = y;
+      rows.push({ ...msg, y: lastMessageY });
+      y += isSelf ? ROW_H + 10 : ROW_H;
+    } else if (msg.kind === 'note' || msg.kind === 'ref') {
+      const noteLines = wrapText(msg.text || msg.text, 24);
+      const noteH = noteLines.length * 16 + 14;
+      rows.push({ ...msg, y, noteH }); y += noteH + 14;
+    } else if (msg.kind === 'section') {
+      rows.push({ ...msg, y }); y += 34;
+    } else if (msg.kind === 'delay') {
+      rows.push({ ...msg, y }); y += 28;
+    } else if (msg.kind === 'space') {
+      y += msg.px || 10;
+    } else if (msg.kind === 'block-start') {
+      const id = blockIdCtr++;
+      blockStack.push({ id, type: msg.blockType, label: msg.label, yStart: y - 6, elseY: [] });
+      rows.push({ ...msg, y, blockId: id }); y += 28;
+    } else if (msg.kind === 'block-else') {
+      if (blockStack.length) {
+        const top = blockStack[blockStack.length - 1];
+        top.elseY.push(y - 4);
+        rows.push({ ...msg, y, blockId: top.id }); y += 24;
+      }
+    } else if (msg.kind === 'block-end') {
+      if (blockStack.length) {
+        const top = blockStack.pop();
+        top.endY = y - 4;
+        rows.push({ ...msg, y, blockId: top.id, block: top }); y += 18;
+      }
+    } else if (msg.kind === 'activate') {
+      if (!activeStack[msg.participant]) activeStack[msg.participant] = [];
+      // Start the activation bar at the same y as the message that triggered it
+      activeStack[msg.participant].push(lastMessageY);
+    } else if (msg.kind === 'deactivate') {
+      if (activeStack[msg.participant]?.length > 0) {
+        const startY = activeStack[msg.participant].pop();
+        activations[msg.participant].push({ startY, endY: y });
+      }
+    } else if (msg.kind === 'destroy') {
+      rows.push({ ...msg, y }); y += ROW_H;
+    }
+  }
+
+  participants.forEach(p => {
+    while ((activeStack[p.alias]?.length || 0) > 0) {
+      const startY = activeStack[p.alias].pop();
+      activations[p.alias].push({ startY, endY: y });
+    }
+  });
+
+  const footH = hideFootbox ? 0 : BOX_H + 10;
+  const totalH = y + footH + 20;
+
+  const svg = [];
+  svg.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" font-family="JetBrains Mono, monospace">`);
+
+  // Collect all colors needed for markers (default + any custom arrow colors)
+  const markerColors = new Set();
+  markerColors.add(C.arrow.solid);
+  markerColors.add(C.arrow.dashed);
+  markerColors.add(C.arrow.lost);
+  messages.filter(m => m.kind === 'message' && m.arrowColor).forEach(m => markerColors.add(m.arrowColor));
+
+  // Emit a full set of markers for each unique color
+  function markerId(color, type) {
+    return 'arr_' + color.replace('#','') + '_' + type;
+  }
+  const defsLines = ['<defs>'];
+  for (const col of markerColors) {
+    const s = col; // stroke/fill color
+    defsLines.push(`<marker id="${markerId(s,'f')}" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 L2,3 Z" fill="${s}"/></marker>`);
+    defsLines.push(`<marker id="${markerId(s,'o')}" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,1 L9,4 L0,7" stroke="${s}" stroke-width="1.5" fill="none"/></marker>`);
+    defsLines.push(`<marker id="${markerId(s,'x')}" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M2,2 L10,10 M10,2 L2,10" stroke="${s}" stroke-width="2" fill="none"/></marker>`);
+  }
+  defsLines.push('</defs>');
+  svg.push(defsLines.join('\n'));
+
+  // Background
+  svg.push(`<rect width="${totalW}" height="${totalH}" fill="${C.bg}"/>`);
+
+  // Title
+  if (title) {
+    svg.push(`<text x="${totalW/2}" y="22" text-anchor="middle" font-size="14" font-weight="700" fill="${C.title}" letter-spacing="0.04em" font-family="Inter, sans-serif">${escXML(title)}</text>`);
+  }
+
+  // Lifelines
+  participants.forEach((p, i) => {
+    const x = cx(i);
+    svg.push(`<line x1="${x}" y1="${LIFELINE_START}" x2="${x}" y2="${totalH - footH - 4}" stroke="${C.lifeline}" stroke-width="1.5" stroke-dasharray="5,5"/>`);
+  });
+
+  // Activation boxes
+  participants.forEach(p => {
+    const i = pIndex[p.alias];
+    if (i === undefined) return;
+    const x = cx(i);
+    (activations[p.alias] || []).forEach(act => {
+      svg.push(`<rect x="${x - ACT_W/2}" y="${act.startY}" width="${ACT_W}" height="${act.endY - act.startY}" fill="${C.activation.fill}" stroke="${C.activation.stroke}" stroke-width="1" rx="2"/>`);
+    });
+  });
+
+  // Blocks
+  const rendered = {};
+  for (const row of rows) {
+    if (row.kind === 'block-end' && row.block && !rendered[row.block.id]) {
+      rendered[row.block.id] = true;
+      const b = row.block;
+      const bc = C[b.type] || C.group;
+      const bx = PAD_X - 12, bw = totalW - (PAD_X - 12) * 2;
+      svg.push(`<rect x="${bx}" y="${b.yStart}" width="${bw}" height="${b.endY - b.yStart}" fill="${bc.fill}" stroke="${bc.stroke}" stroke-width="1" rx="5"/>`);
+      const tag = b.type.toUpperCase();
+      const tagW = tag.length * 7 + 14;
+      svg.push(`<rect x="${bx}" y="${b.yStart}" width="${tagW}" height="17" fill="${bc.stroke}" rx="4" rx="4"/>`);
+      svg.push(`<text x="${bx + 7}" y="${b.yStart + 12}" font-size="9.5" font-weight="700" fill="#fff" font-family="Inter, sans-serif">${tag}</text>`);
+      if (b.label && b.type !== 'par') {
+        svg.push(`<text x="${bx + tagW + 6}" y="${b.yStart + 12}" font-size="10" fill="${bc.text}" font-family="JetBrains Mono, monospace">[${escXML(b.label)}]</text>`);
+      }
+      b.elseY.forEach(ey => {
+        svg.push(`<line x1="${bx}" y1="${ey}" x2="${bx + bw}" y2="${ey}" stroke="${bc.stroke}" stroke-width="0.75" stroke-dasharray="4,3"/>`);
+        svg.push(`<rect x="${bx}" y="${ey}" width="${b.type === 'alt' ? 38 : 30}" height="15" fill="${bc.stroke}" rx="3"/>`);
+        svg.push(`<text x="${bx + 5}" y="${ey + 11}" font-size="9" font-weight="700" fill="#fff" font-family="Inter, sans-serif">${b.type === 'alt' ? 'ELSE' : 'AND'}</text>`);
+      });
+    }
+  }
+
+  // Rows
+  for (const row of rows) {
+    if (row.kind === 'message') {
+      const fi = row.boundaryFrom ? -1 : pIndex[row.from];
+      const ti = row.boundaryTo ? participants.length : pIndex[row.to];
+      if (fi === undefined || ti === undefined) continue;
+
+      const x1 = row.boundaryFrom ? PAD_X - 30 : cx(fi);
+      const x2 = row.boundaryTo ? totalW - PAD_X + 30 : cx(ti);
+      const my = row.y;
+      const isDashed = row.arrow.startsWith('--');
+      const isOpen = row.arrow.includes('>>');
+      const isLost = row.lost;
+
+      // Resolve color: custom arrowColor > lost > dashed/solid defaults
+      const baseColor = isLost ? C.arrow.lost : (isDashed ? C.arrow.dashed : C.arrow.solid);
+      const color = row.arrowColor || baseColor;
+      const dashArr = isDashed ? '5,4' : 'none';
+
+      // Pick marker from the per-color set
+      const markerRef = isLost
+        ? `url(#${markerId(color,'x')})`
+        : isOpen
+          ? `url(#${markerId(color,'o')})`
+          : `url(#${markerId(color,'f')})`;
+
+      const selfMsg = !row.boundaryFrom && !row.boundaryTo && fi === ti;
+      if (selfMsg) {
+        const off = 36;
+        const h   = 26;
+        svg.push(`<line x1="${x1}" y1="${my}" x2="${x1+off}" y2="${my}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${dashArr}"/>`);
+        svg.push(`<line x1="${x1+off}" y1="${my}" x2="${x1+off}" y2="${my+h}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${dashArr}"/>`);
+        svg.push(`<line x1="${x1+off}" y1="${my+h}" x2="${x1+2}" y2="${my+h}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${dashArr}" marker-end="${markerRef}"/>`);
+        const label = (row.num ? `${row.num}. ` : '') + row.text;
+        svg.push(`<text x="${x1+off+6}" y="${my+h/2+5}" font-size="11" fill="${color}" font-family="JetBrains Mono, monospace">${escXML(label)}</text>`);
+      } else {
+        const dir = x2 >= x1 ? 1 : -1;
+        const endX = x2 - dir * (isOpen ? 9 : 7);
+        svg.push(`<line x1="${x1}" y1="${my}" x2="${endX}" y2="${my}" stroke="${color}" stroke-width="1.5" stroke-dasharray="${dashArr}" marker-end="${markerRef}"/>`);
+        const midX = (x1 + x2) / 2;
+        const numSpan = row.num ? `<tspan fill="${C.num}" font-weight="600">${row.num}. </tspan>` : '';
+        svg.push(`<text x="${midX}" y="${my - 6}" text-anchor="middle" font-size="11" fill="${color}" font-family="JetBrains Mono, monospace">${numSpan}${escXML(row.text)}</text>`);
+      }
+
+    } else if (row.kind === 'note' || row.kind === 'ref') {
+      const idxArr = row.participants.map(a => pIndex[a]).filter(i => i !== undefined);
+      if (!idxArr.length) continue;
+
+      let nc, nw;
+      const pos = row.position || 'over';
+      if (pos === 'over') {
+        const minI = Math.min(...idxArr), maxI = Math.max(...idxArr);
+        nc = cx(minI) - BOX_W / 2 + 10;
+        nw = (cx(maxI) - cx(minI)) + BOX_W - 20;
+      } else if (pos === 'left of') {
+        nw = 120; nc = cx(Math.min(...idxArr)) - BOX_W / 2 - nw - 8;
+      } else {
+        nw = 120; nc = cx(Math.max(...idxArr)) + BOX_W / 2 + 8;
+      }
+
+      const noteLines = wrapText(row.text, Math.max(10, Math.floor(nw / 7.5)));
+      const noteH = noteLines.length * 16 + 14;
+      const isRef = row.kind === 'ref';
+      const nc_ = isRef ? C.ref : (row.shape === 'hnote' ? C.noteHex : row.shape === 'rnote' ? C.noteRound : C.note);
+
+      if (isRef) {
+        svg.push(`<rect x="${nc}" y="${row.y}" width="${nw}" height="${noteH}" fill="${nc_.fill}" stroke="${nc_.stroke}" stroke-width="1" rx="5"/>`);
+        svg.push(`<text x="${nc + nw/2}" y="${row.y + 10}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${nc_.text}" font-family="Inter, sans-serif">REF</text>`);
+      } else if (row.shape === 'hnote') {
+        const hx = nc, hy = row.y, hw = nw, hh = noteH;
+        svg.push(`<polygon points="${hx+12},${hy} ${hx+hw-12},${hy} ${hx+hw},${hy+hh/2} ${hx+hw-12},${hy+hh} ${hx+12},${hy+hh} ${hx},${hy+hh/2}" fill="${nc_.fill}" stroke="${nc_.stroke}" stroke-width="1"/>`);
+      } else if (row.shape === 'rnote') {
+        svg.push(`<rect x="${nc}" y="${row.y}" width="${nw}" height="${noteH}" fill="${nc_.fill}" stroke="${nc_.stroke}" stroke-width="1" rx="${noteH/2}"/>`);
+      } else {
+        // Dog-ear note
+        const dogEar = 8;
+        svg.push(`<path d="M${nc},${row.y} L${nc+nw-dogEar},${row.y} L${nc+nw},${row.y+dogEar} L${nc+nw},${row.y+noteH} L${nc},${row.y+noteH} Z" fill="${nc_.fill}" stroke="${nc_.stroke}" stroke-width="1"/>`);
+        svg.push(`<path d="M${nc+nw-dogEar},${row.y} L${nc+nw-dogEar},${row.y+dogEar} L${nc+nw},${row.y+dogEar}" fill="none" stroke="${nc_.stroke}" stroke-width="1"/>`);
+      }
+      noteLines.forEach((ln, li) => {
+        svg.push(`<text x="${nc + nw/2}" y="${row.y + 14 + li*16 + (isRef?6:0)}" text-anchor="middle" font-size="11" fill="${nc_.text}" font-family="JetBrains Mono, monospace">${escXML(ln)}</text>`);
+      });
+
+    } else if (row.kind === 'section') {
+      const lx = PAD_X - 12, rw = totalW - (PAD_X - 12) * 2;
+      svg.push(`<line x1="${lx}" y1="${row.y + 12}" x2="${lx + rw}" y2="${row.y + 12}" stroke="${C.section}" stroke-width="1"/>`);
+      const label = `== ${row.label} ==`;
+      const lw = label.length * 7.2 + 20;
+      svg.push(`<rect x="${totalW/2 - lw/2}" y="${row.y + 4}" width="${lw}" height="17" rx="4" fill="${C.bg}" stroke="${C.section}" stroke-width="1"/>`);
+      svg.push(`<text x="${totalW/2}" y="${row.y + 16}" text-anchor="middle" font-size="11" fill="${C.section}" font-family="JetBrains Mono, monospace">${escXML(label)}</text>`);
+
+    } else if (row.kind === 'delay') {
+      svg.push(`<text x="${totalW/2}" y="${row.y + 14}" text-anchor="middle" font-size="11" fill="${C.delay}" font-style="italic" font-family="JetBrains Mono, monospace">...${escXML(row.text)}...</text>`);
+
+    } else if (row.kind === 'destroy') {
+      const i = pIndex[row.participant];
+      if (i !== undefined) {
+        const x = cx(i);
+        svg.push(`<line x1="${x-10}" y1="${row.y-8}" x2="${x+10}" y2="${row.y+8}" stroke="${C.arrow.lost}" stroke-width="2.5" stroke-linecap="round"/>`);
+        svg.push(`<line x1="${x+10}" y1="${row.y-8}" x2="${x-10}" y2="${row.y+8}" stroke="${C.arrow.lost}" stroke-width="2.5" stroke-linecap="round"/>`);
+      }
+    }
+  }
+
+  // Participant boxes
+  participants.forEach((p, i) => {
+    const x = cx(i);
+    // If participant has a custom color, derive fill/stroke/text from it
+    let pColor;
+    if (p.color) {
+      pColor = {
+        fill: p.color + '22',   // 13% opacity fill
+        stroke: p.color,
+        text: '#1a1a2e'
+      };
+    } else {
+      pColor = C[p.type] || C.participant;
+    }
+    const drawBox = (bx, by) => {
+      if (p.type === 'actor') {
+        drawActor(svg, x, by, pColor);
+      } else if (p.type === 'database') {
+        drawDatabase(svg, x - BOX_W/2, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H/2 + 4, p.label, pColor.text);
+      } else if (p.type === 'collections') {
+        drawCollections(svg, x - BOX_W/2, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H/2 + 4, p.label, pColor.text);
+      } else if (p.type === 'queue') {
+        drawQueue(svg, x - BOX_W/2, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H/2 + 4, p.label, pColor.text);
+      } else if (p.type === 'boundary') {
+        drawBoundary(svg, x, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H + 12, p.label, pColor.text);
+      } else if (p.type === 'control') {
+        drawControl(svg, x, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H + 12, p.label, pColor.text);
+      } else if (p.type === 'entity') {
+        drawEntity(svg, x, by, BOX_W, BOX_H, pColor);
+        drawBoxLabel(svg, x, by + BOX_H + 12, p.label, pColor.text);
+      } else {
+        svg.push(`<rect x="${x - BOX_W/2}" y="${by}" width="${BOX_W}" height="${BOX_H}" fill="${pColor.fill}" stroke="${pColor.stroke}" stroke-width="1.5" rx="5"/>`);
+        drawBoxLabel(svg, x, by + BOX_H/2 + 4, p.label, pColor.text);
+      }
+    };
+
+    // Top
+    drawBox(x, LIFELINE_START - BOX_H);
+    // Bottom
+    if (!hideFootbox) drawBox(x, totalH - footH);
+  });
+
+  svg.push('</svg>');
+  return svg.join('\n');
+}
+
+// Participant shape helpers
+function drawBoxLabel(svg, x, y, label, color) {
+  const lines = wrapText(label, 14);
+  lines.forEach((ln, li) => {
+    const ty = y + (li - (lines.length - 1) / 2) * 14;
+    svg.push(`<text x="${x}" y="${ty}" text-anchor="middle" font-size="12" font-weight="600" fill="${color}" font-family="Inter, sans-serif">${escXML(ln)}</text>`);
+  });
+}
+
+function drawActor(svg, x, y, c) {
+  // Stick figure
+  svg.push(`<circle cx="${x}" cy="${y+8}" r="8" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<line x1="${x}" y1="${y+16}" x2="${x}" y2="${y+30}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<line x1="${x-10}" y1="${y+22}" x2="${x+10}" y2="${y+22}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<line x1="${x}" y1="${y+30}" x2="${x-8}" y2="${y+42}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<line x1="${x}" y1="${y+30}" x2="${x+8}" y2="${y+42}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+}
+
+function drawDatabase(svg, x, y, w, h, c) {
+  const ry = 6, cx2 = x + w/2;
+  svg.push(`<path d="M${x},${y+ry} Q${x},${y} ${cx2},${y} Q${x+w},${y} ${x+w},${y+ry} L${x+w},${y+h-ry} Q${x+w},${y+h} ${cx2},${y+h} Q${x},${y+h} ${x},${y+h-ry} Z" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<path d="M${x},${y+ry} Q${x},${y+ry*2} ${cx2},${y+ry*2} Q${x+w},${y+ry*2} ${x+w},${y+ry}" fill="none" stroke="${c.stroke}" stroke-width="1"/>`);
+}
+
+function drawCollections(svg, x, y, w, h, c) {
+  svg.push(`<rect x="${x+5}" y="${y+3}" width="${w-5}" height="${h-3}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" rx="3"/>`);
+  svg.push(`<rect x="${x+2}" y="${y+1.5}" width="${w-5}" height="${h-3}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1" rx="3"/>`);
+  svg.push(`<rect x="${x}" y="${y}" width="${w-5}" height="${h-3}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5" rx="3"/>`);
+}
+
+function drawQueue(svg, x, y, w, h, c) {
+  const cx2 = x + w/2, ry = h/2;
+  svg.push(`<path d="M${x+10},${y} L${x+w},${y} Q${x+w+10},${y+ry} ${x+w},${y+h} L${x+10},${y+h} Q${x},${y+ry+ry/2} ${x},${y+h/2+ry/4} Q${x},${y+ry/2} ${x+10},${y} Z" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+}
+
+function drawBoundary(svg, x, y, w, h, c) {
+  svg.push(`<line x1="${x}" y1="${y}" x2="${x}" y2="${y+h}" stroke="${c.stroke}" stroke-width="2.5"/>`);
+  svg.push(`<line x1="${x}" y1="${y+h/2}" x2="${x+20}" y2="${y+h/2}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<circle cx="${x+20+h/2}" cy="${y+h/2}" r="${h/2-1}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+}
+
+function drawControl(svg, x, y, w, h, c) {
+  const r = h/2 - 1;
+  svg.push(`<circle cx="${x}" cy="${y+h/2}" r="${r}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<path d="M${x},${y+2} L${x+r*0.7},${y+2-r*0.3} M${x},${y+2} L${x-r*0.3},${y+2+r*0.7}" stroke="${c.stroke}" stroke-width="1.5" fill="none" stroke-linecap="round"/>`);
+}
+
+function drawEntity(svg, x, y, w, h, c) {
+  const r = h/2 - 1;
+  svg.push(`<circle cx="${x}" cy="${y+h/2}" r="${r}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+  svg.push(`<line x1="${x-r}" y1="${y+h/2+r+3}" x2="${x+r}" y2="${y+h/2+r+3}" stroke="${c.stroke}" stroke-width="1.5"/>`);
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function escXML(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function wrapText(text, maxChars) {
+  if (!text) return [''];
+  // handle \n
+  const paragraphs = text.split(/\\n|\n/);
+  const lines = [];
+  for (const para of paragraphs) {
+    const words = para.trim().split(' ');
+    let cur = '';
+    for (const w of words) {
+      if ((cur ? cur + ' ' + w : w).length > maxChars && cur) {
+        lines.push(cur); cur = w;
+      } else { cur = cur ? cur + ' ' + w : w; }
+    }
+    if (cur) lines.push(cur);
+  }
+  return lines.length ? lines : [''];
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentScale = 1;
+
+function renderDiagram() {
+  const dsl = document.getElementById('dsl-editor').value.trim();
+  const out = document.getElementById('diagram-output');
+  const dot = document.getElementById('status-dot');
+  const st = document.getElementById('status-text');
+
+  if (!dsl) {
+    out.innerHTML = `<div class="diagram-wrap"><div class="hint-box"><span>✏️</span>Write PlantUML DSL in the editor and hit Render</div></div>`;
+    return;
+  }
+  try {
+    const parsed = parseDSL(dsl);
+    if (!parsed.participants.length) {
+      out.innerHTML = `<div class="diagram-wrap"><div class="error-box">No participants found. Add participant/actor declarations or message arrows like "A -> B: text".</div></div>`;
+      dot.className = 'status-dot error'; st.textContent = 'No participants';
+      return;
+    }
+    const svgStr = renderSVG(parsed);
+    out.innerHTML = `<div class="diagram-wrap">${svgStr}</div>`;
+    dot.className = 'status-dot';
+    const vars = parsed.colorVars || {};
+    const varCount = Object.keys(vars).length;
+    const swatches = varCount
+      ? ' · ' + Object.entries(vars).map(([k,v]) =>
+          `<span title="#${k} = #${v}" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#${v};border:1px solid #ccc;vertical-align:middle;margin-left:2px;cursor:default"></span>`
+        ).join('')
+      : '';
+    st.innerHTML = `OK — ${parsed.participants.length} participants, ${parsed.messages.filter(m=>m.kind==='message').length} messages${swatches}`;
+  } catch(e) {
+    out.innerHTML = `<div class="diagram-wrap"><div class="error-box">Parse error: ${e.message}\n\n${e.stack||''}</div></div>`;
+    dot.className = 'status-dot error'; st.textContent = 'Error';
+  }
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.panel-tab').forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  el.classList.add('active');
+}
+
+function insertSnippet(s) {
+  const tabs = document.querySelectorAll('.panel-tab');
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  tabs.forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-editor').classList.add('active');
+  tabs[0].classList.add('active');
+
+  const ta = document.getElementById('dsl-editor');
+  const pos = ta.selectionStart;
+  const before = ta.value.substring(0, pos);
+  const after = ta.value.substring(ta.selectionEnd);
+  ta.value = before + (before && !before.endsWith('\n') ? '\n' : '') + s + '\n' + after;
+  ta.focus();
+  renderDiagram();
+}
+
+function loadExample(key) {
+  document.getElementById('dsl-editor').value = EXAMPLES[key] || '';
+  const tabs = document.querySelectorAll('.panel-tab');
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  tabs.forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-editor').classList.add('active');
+  tabs[0].classList.add('active');
+  renderDiagram();
+}
+
+function zoom(delta) {
+  currentScale = Math.max(0.25, Math.min(3, currentScale + delta));
+  document.getElementById('diagram-output').style.transform = `scale(${currentScale})`;
+  document.getElementById('zoom-label').textContent = Math.round(currentScale * 100) + '%';
+}
+function resetZoom() { currentScale = 1; zoom(0); }
+
+function copyDSL() {
+  navigator.clipboard.writeText(document.getElementById('dsl-editor').value);
+  const btn = event.target.closest('button');
+  const orig = btn.innerHTML;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.innerHTML = orig, 1500);
+}
+
+function getSVGElement() {
+  return document.querySelector('#diagram-output svg');
+}
+
+function triggerDownload(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function exportSVG() {
+  const svg = getSVGElement();
+  if (!svg) { alert('Render a diagram first.'); return; }
+  // Use data URI — works in sandboxed iframes where createObjectURL is blocked
+  const svgStr = new XMLSerializer().serializeToString(svg);
+  const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+  triggerDownload(dataUrl, 'sequence-diagram.svg');
+}
+
+function exportPNG() {
+  const svg = getSVGElement();
+  if (!svg) { alert('Render a diagram first.'); return; }
+
+  const scale = 2;
+  const w = parseInt(svg.getAttribute('width'));
+  const h = parseInt(svg.getAttribute('height'));
+
+  // Inline safe fallback fonts so canvas renders text correctly without
+  // needing external font fetches (which are blocked in sandbox contexts)
+  const svgClone = svg.cloneNode(true);
+  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  // Override fonts to system stacks that canvas can always render
+  styleEl.textContent = `
+    text { font-family: ui-monospace, 'Courier New', monospace !important; }
+  `;
+  svgClone.insertBefore(styleEl, svgClone.firstChild);
+
+  const svgStr = new XMLSerializer().serializeToString(svgClone);
+  // Use data URI — avoids createObjectURL sandbox block
+  const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+
+  const img = new Image();
+  const canvas = document.createElement('canvas');
+  canvas.width = w * scale;
+  canvas.height = h * scale;
+  const ctx = canvas.getContext('2d');
+
+  img.onload = () => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    // toDataURL works without createObjectURL
+    triggerDownload(canvas.toDataURL('image/png'), 'sequence-diagram.png');
+  };
+  img.onerror = () => {
+    alert('PNG export failed — try SVG export instead.');
+  };
+  img.src = svgDataUrl;
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  loadExample('login');
+  document.getElementById('dsl-editor').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); renderDiagram(); }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const ta = e.target;
+      const s = ta.selectionStart;
+      ta.value = ta.value.substring(0, s) + '  ' + ta.value.substring(ta.selectionEnd);
+      ta.selectionStart = ta.selectionEnd = s + 2;
+    }
+  });
+
+  // ── Resizer drag logic ────────────────────────────────────────────
+  const resizer    = document.getElementById('resizer');
+  const leftPanel  = document.querySelector('.left-panel');
+  const collapseBtn = document.getElementById('resizer-collapse');
+
+  let dragging = false;
+  let lastWidth = 360; // remember width before collapse
+
+  resizer.addEventListener('mousedown', e => {
+    // Ignore clicks on the collapse button itself
+    if (e.target === collapseBtn) return;
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const workspace = document.querySelector('.workspace');
+    const rect = workspace.getBoundingClientRect();
+    const newW = Math.min(Math.max(e.clientX - rect.left, 180), workspace.offsetWidth * 0.7);
+    leftPanel.style.width = newW + 'px';
+    lastWidth = newW;
+    updateCollapseBtn();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+
+  // Collapse / expand toggle
+  collapseBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const currentW = leftPanel.offsetWidth;
+    if (currentW > 40) {
+      // Collapse
+      lastWidth = currentW;
+      leftPanel.style.width = '0px';
+      leftPanel.style.overflow = 'hidden';
+    } else {
+      // Expand
+      leftPanel.style.width = lastWidth + 'px';
+      leftPanel.style.overflow = '';
+    }
+    updateCollapseBtn();
+  });
+
+  function updateCollapseBtn() {
+    const collapsed = leftPanel.offsetWidth < 40;
+    collapseBtn.textContent = collapsed ? '▶' : '◀';
+    collapseBtn.title = collapsed ? 'Expand panel' : 'Collapse panel';
+  }
+});
+</script>
+</body>
+</html>
