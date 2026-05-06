@@ -599,6 +599,14 @@
         <button onclick="zoom(0.1)">+</button>
         <button class="btn-ghost" onclick="resetZoom()" style="width:auto;padding:0 8px;height:26px;font-size:11px;">Reset</button>
       </div>
+      <div class="toolbar-sep"></div>
+      <label style="font-size:11px;color:var(--text2);font-weight:500;">Export scale</label>
+      <select id="export-scale" style="font-family:var(--mono);font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);height:26px;">
+        <option value="2">2× (screen)</option>
+        <option value="4" selected>4× (PowerPoint)</option>
+        <option value="6">6× (print)</option>
+        <option value="8">8× (A3/large)</option>
+      </select>
     </div>
     <div class="canvas-scroll">
       <div id="diagram-output">
@@ -1767,34 +1775,10 @@ function openFile(event) {
 function exportPNG() {
   const svg = getSVGElement();
   if (!svg) { alert('Render a diagram first.'); return; }
-
-  const scale = 2;
-  const w = parseInt(svg.getAttribute('width'));
-  const h = parseInt(svg.getAttribute('height'));
-
-  const svgClone = svg.cloneNode(true);
-  const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-  styleEl.textContent = `text { font-family: ui-monospace, 'Courier New', monospace !important; }`;
-  svgClone.insertBefore(styleEl, svgClone.firstChild);
-
-  const svgStr = new XMLSerializer().serializeToString(svgClone);
-  const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
-
-  const img = new Image();
-  const canvas = document.createElement('canvas');
-  canvas.width = w * scale;
-  canvas.height = h * scale;
-  const ctx = canvas.getContext('2d');
-
-  img.onload = () => {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0);
+  const scale = parseInt(document.getElementById('export-scale').value) || 4;
+  buildCanvas(svg, scale, canvas => {
     triggerDownload(canvas.toDataURL('image/png'), 'sequence-diagram.png');
-  };
-  img.onerror = () => { alert('PNG export failed.'); };
-  img.src = svgDataUrl;
+  });
 }
 
 function buildCanvas(svg, scale, callback) {
@@ -1826,8 +1810,9 @@ function copyImage() {
   const svg = getSVGElement();
   if (!svg) { alert('Render a diagram first.'); return; }
   const btn = document.getElementById('copy-img-btn');
+  const scale = parseInt(document.getElementById('export-scale').value) || 4;
 
-  buildCanvas(svg, 2, canvas => {
+  buildCanvas(svg, scale, canvas => {
     canvas.toBlob(blob => {
       if (!blob) { alert('Could not generate image.'); return; }
       try {
