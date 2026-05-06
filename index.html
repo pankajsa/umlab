@@ -599,14 +599,6 @@
         <button onclick="zoom(0.1)">+</button>
         <button class="btn-ghost" onclick="resetZoom()" style="width:auto;padding:0 8px;height:26px;font-size:11px;">Reset</button>
       </div>
-      <div class="toolbar-sep"></div>
-      <label style="font-size:11px;color:var(--text2);font-weight:500;">Export scale</label>
-      <select id="export-scale" style="font-family:var(--mono);font-size:11px;padding:3px 6px;border:1px solid var(--border2);border-radius:5px;background:var(--surface2);color:var(--text);height:26px;">
-        <option value="2">2× (screen)</option>
-        <option value="4" selected>4× (PowerPoint)</option>
-        <option value="6">6× (print)</option>
-        <option value="8">8× (A3/large)</option>
-      </select>
     </div>
     <div class="canvas-scroll">
       <div id="diagram-output">
@@ -1440,7 +1432,7 @@ function renderSVG(parsed) {
         if (row.text) {
           const label = (row.num ? `${row.num}. ` : '') + row.text;
           const lw = label.length * 6.2 + 12;
-          svg.push(`<rect x="${x1+4}" y="${my+2}" width="${lw}" height="14" rx="3" fill="${color}22" stroke="${color}" stroke-width="0.75"/>`);
+          svg.push(`<rect x="${x1+4}" y="${my+2}" width="${lw}" height="14" rx="3" fill="white" stroke="${color}" stroke-width="0.75"/>`);
           svg.push(`<text x="${x1+4+lw/2}" y="${my+12}" text-anchor="middle" font-size="10" fill="${color}" font-family="JetBrains Mono, monospace">${escXML(label)}</text>`);
         }
       } else {
@@ -1452,9 +1444,8 @@ function renderSVG(parsed) {
           const maxW = Math.abs(x2 - x1) - 20;
           const lw = Math.min(label.length * 6.2 + 14, maxW);
           const boxX = dir > 0 ? x1 + 6 : x2 + 6;
-          // Pill sits just below the arrow line — clear of block headers above
           const boxY = my + 3;
-          svg.push(`<rect x="${boxX}" y="${boxY}" width="${lw}" height="14" rx="3" fill="${color}22" stroke="${color}" stroke-width="0.75"/>`);
+          svg.push(`<rect x="${boxX}" y="${boxY}" width="${lw}" height="14" rx="3" fill="white" stroke="${color}" stroke-width="0.75"/>`);
           svg.push(`<text x="${boxX + lw/2}" y="${boxY + 10}" text-anchor="middle" font-size="10" fill="${color}" font-family="JetBrains Mono, monospace">${escXML(label)}</text>`);
         }
       }
@@ -1775,8 +1766,7 @@ function openFile(event) {
 function exportPNG() {
   const svg = getSVGElement();
   if (!svg) { alert('Render a diagram first.'); return; }
-  const scale = parseInt(document.getElementById('export-scale').value) || 4;
-  buildCanvas(svg, scale, canvas => {
+  buildCanvas(svg, 2, canvas => {
     triggerDownload(canvas.toDataURL('image/png'), 'sequence-diagram.png');
   });
 }
@@ -1810,7 +1800,7 @@ function copyImage() {
   const svg = getSVGElement();
   if (!svg) { alert('Render a diagram first.'); return; }
   const btn = document.getElementById('copy-img-btn');
-  const scale = parseInt(document.getElementById('export-scale').value) || 4;
+  const scale = parseInt(document.getElementById('export-scale')?.value) || 2;
 
   buildCanvas(svg, scale, canvas => {
     canvas.toBlob(blob => {
